@@ -173,6 +173,11 @@
     }
     $('.btnList').on('click', 'input', function () {
         $(this).addClass('btn-active1').siblings().removeClass('btn-active1');
-        jsonGet($(this).val());
+		if ($(this).val() === '功能'){
+			jsonGet('function');
+		} else {
+			jsonGet('domain');
+		}
+        
     });
 }();
