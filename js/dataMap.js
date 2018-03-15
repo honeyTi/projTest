@@ -34,7 +34,6 @@ panorama.prototype = {
                                                             }
                                                 }
                                     }
-                                    console.log(link);
                                     return link;
                         }
 
@@ -42,7 +41,39 @@ panorama.prototype = {
                         // d3颜色调整
                         let colors = d3.scaleOrdinal(d3.schemeCategory10); //待调整样式
 
-                        // 缩放功能
+                        //***********************圆弧线or直线的判断********************
+                        /*
+                         *  此处的作用是给下面判断当前是两个节点之间的第几条线儿添加必要的参数（linkNum、size）的,
+                         *  其中本段的作用为添加size属性，最后调用的setLinkNumber()方法添加linkNum属性
+                         */
+                        let linkGroup = {};
+                        let linkmap = {};
+                        let links = option.data.links;
+                        for(let i=0; i<links.length; i++){
+                            let key = links[i].source<links[i].target?links[i].source+':'+links[i].target:links[i].target+':'+links[i].source;
+                            if(!linkmap.hasOwnProperty(key)){
+                                linkmap[key] = 0;
+                            }
+                            linkmap[key]+=1;
+                            if(!linkGroup.hasOwnProperty(key)){
+                                linkGroup[key]=[];
+                            }
+                            linkGroup[key].push(links[i]);
+                        }
+                        for(let i=0; i<links.length; i++){
+                            let key = links[i].source<links[i].target?links[i].source+':'+links[i].target:links[i].target+':'+links[i].source;
+                            links[i].size = linkmap[key];
+                            let group = linkGroup[key];
+                            let keyPair = key.split(':');
+                            let type = 'noself';
+                            if(keyPair[0]==keyPair[1]){
+                                type = 'self';
+                            }
+                            setLinkNumber(group,type);
+                        }
+                        //**********************属性添加结束*************************
+
+                // 缩放功能
                         let zoom = d3.zoom()
                                     .scaleExtent([1 / 2, 20]) //缩放 比例范围
                                     .on("zoom", zoomed);
@@ -136,9 +167,96 @@ panorama.prototype = {
                                     .selectAll('line')
                                     .data(option.data.links)
                                     .enter()
-                                    .append('line')
-                                    .attr('stroke', '#ccc')
+                                    .append('path')
+                                    .attr("id", function (d, i) { // 设定节点间连线的 id ，这个id 会被连线上的文字的属性所引用。用以设定文字样式。
+                                        return "line" + i
+                                    })
+                                    .attr('stroke', '#000')
+                                    .attr('fill', 'transparent')
                                     .attr('stroke-width', 1);
+                        //************************增加连接线文字***********************
+                        let link_text = svg
+                                    .selectAll('nodes')
+                                    .data(option.data.links)
+                                    .enter()
+                                    .append("text")
+                                    .attr("class", "link_text")
+                                    //dx和dy分别用来设置文字距离节点的距离和文字距离连接线的位置
+                                    //此处的设置为基础固定值，到后面的tick函数中，我们写入相应的方法，根据每条线的长度，计算对应的文字距离节点的距离，保证文字始终在中间
+                                    .attr("dx", function (d) {
+                                        return 100;
+                                    })
+                                    .attr("dy", function (d) {
+                                        return 4
+                                    })
+                                    .append("textPath")
+                                    //根据之前定义的链接线的id来定位文字的相对地方
+                                    .attr("xlink:href", function (d, i) {
+                                        return "#line" + i
+                                    })
+                                    .attr("fill", "#1685a9")
+                                    .style("font-size", 16)
+                                    //以links中的relation属性的值作为显示在连接线上的内容
+                                    .text(function (d) {
+                                        return d.relation
+                                    });
+                        //所有连接线文字的选择器，下方文字动态变化时用得上
+                        let link_text_selector = svg.selectAll(".link_text");
+
+                        //***************************为links的每一个元素添加linkNum属性的方法**************************
+                        function setLinkNumber(group,type){  
+                            if(group.length==0) return;  
+                            var linksA = [], linksB = [];  
+                            for(var i = 0;i<group.length;i++){  
+                                var link = group[i];  
+                                if(link.source < link.target){  
+                                    linksA.push(link);  
+                                }else{  
+                                    linksB.push(link);  
+                                }  
+                            }
+                            var maxLinkNumber = 0;  
+                            if(type=='self'){  
+                                maxLinkNumber = group.length;  
+                            }else{  
+                                maxLinkNumber = group.length%2==0?group.length/2:(group.length+1)/2;  
+                            }  
+                            if(linksA.length==linksB.length){  
+                                var startLinkNumber = 1;  
+                                for(var i=0;i<linksA.length;i++){  
+                                    linksA[i].linknum = startLinkNumber++;  
+                                }  
+                                startLinkNumber = 1;  
+                                for(var i=0;i<linksB.length;i++){  
+                                    linksB[i].linknum = startLinkNumber++;  
+                                }  
+                            }else{
+                                var biggerLinks,smallerLinks;  
+                                if(linksA.length>linksB.length){  
+                                    biggerLinks = linksA;  
+                                    smallerLinks = linksB;  
+                                }else{  
+                                    biggerLinks = linksB;  
+                                    smallerLinks = linksA;  
+                                }  
+                        
+                                var startLinkNumber = maxLinkNumber;  
+                                for(var i=0;i<smallerLinks.length;i++){  
+                                    smallerLinks[i].linknum = startLinkNumber--;  
+                                }  
+                                var tmpNumber = startLinkNumber;  
+                        
+                                startLinkNumber = 1;  
+                                var p = 0;  
+                                while(startLinkNumber<=maxLinkNumber){  
+                                    biggerLinks[p++].linknum = startLinkNumber++;  
+                                }  
+                                startLinkNumber = 0-tmpNumber;  
+                                for(var i=p;i<biggerLinks.length;i++){  
+                                    biggerLinks[i].linknum = startLinkNumber++;  
+                                }  
+                            }   
+                        }  
 
                         // 增加节点
                         let nodeGroup = svg.append('g')
@@ -257,7 +375,45 @@ panorama.prototype = {
                                                 })
                                                 .attr('y2', function (d) {
                                                             return d.target.y;
+                                                })
+                                                //*************************画线的重要属性 d ，分为5种情况*************************
+                                                .attr("d", function (d, i) {
+                                                    //1.当某个结点自己直向自己时
+                                                    if(d.target==d.source){
+                                                        dr = 30/d.linknum;
+                                                        return"M" + d.source.x + "," + d.source.y + "A" + dr + "," + dr + " 0 1,1 " + d.target.x + "," + (d.target.y+1);
+                                                    //2.判断当两个结点之间有奇数条连接线时，将中间那条线画成直线
+                                                    }else if(d.size%2!=0 && d.linknum==1){
+                                                       return 'M '+d.source.x+' '+d.source.y+' L '+ d.target.x +' '+d.target.y;
+                                                    }
+                                                    var curve=1.5;
+                                                    var homogeneous=1.2;
+                                                    var dx = d.target.x - d.source.x,
+                                                        dy = d.target.y - d.source.y,
+                                                        dr = Math.sqrt(dx*dx+dy*dy)*(d.linknum+homogeneous)/(curve*homogeneous);
+                                                    //3.连接线编号大于0时，画向上拱的弧线
+                                                    if(d.linknum<0){
+                                                        dr = Math.sqrt(dx*dx+dy*dy)*(-1*d.linknum+homogeneous)/(curve*homogeneous);
+                                                        return "M" + d.source.x + "," + d.source.y + "A" + dr + "," + dr + " 0 0,0 " + d.target.x + "," + d.target.y;
+                                                    }
+                                                    //4.连接线编号小于0时，画向下拱的弧线
+                                                    return "M" + d.source.x + "," + d.source.y + "A" + dr + "," + dr + " 0 0,1 " + d.target.x + "," + d.target.y;
+                                                    //5.不想用直线，想把所有的线都画成朝一个方向拱的弧线时
+                                                    // let dx = d.target.x - d.source.x,//增量
+                                                    // dy = d.target.y - d.source.y,
+                                                    // dr = Math.sqrt(dx * dx + dy * dy);
+                                                    // let path = "M" + d.source.x + ","
+                                                    //             + d.source.y + "A" + dr + ","
+                                                    //             + dr + " 0 0,1 " + d.target.x + ","
+                                                    //             + d.target.y;
+                                                    // return path
                                                 });
+                                    link_text_selector
+                                                .attr('dx', function( d , i){
+                                                    //根据勾股定理计算圆弧的直向长度
+                                                    return (Math.sqrt(Math.pow(d.target.x - d.source.x, 2) + Math.pow(d.target.y - d.source.y, 2))) / 2.2;
+                                                })
+                                                .attr('dy', -4);
                                     three_menu
                                                 .attr('x', function (d) {
                                                             return d.x;

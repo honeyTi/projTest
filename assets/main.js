@@ -18,8 +18,10 @@
             success: function(data){
                 jsonData = data;
                 updata();
+
             }
         });
+
     }
     jsonGet('domain');
     function updata() {
@@ -46,7 +48,8 @@
                         ]
                     }
                 ],
-                links:[]
+                links:[{source:  "分类" , target: "医药", relation: "link-text"},
+                    {source:  "医药" , target: "分类" , relation: "link2-text"}]
             };
             for (var i = 0 ; i < data[0].nodes.length; i++){
                 jsonList.nodes.push(
@@ -61,7 +64,9 @@
                 jsonList.links.push(
                     {
                         source: data[0].nodes[i],
-                        target: '分类'
+                        target: '分类',
+                        relation: data[i].relation,
+                        relation: "link_text"
                     }
                 )
             }
@@ -85,7 +90,8 @@
                         jsonList.links.push(
                             {
                                 source: data[1].nodes[j],
-                                target: data[1].name
+                                target: data[1].name,
+                                relation: data[1].relation
                             }
                         )
                     }
@@ -109,7 +115,8 @@
                             jsonList.links.push(
                                 {
                                     source: data[i].nodes[j],
-                                    target: data[i].name
+                                    target: data[i].name,
+                                    relation: data[i].relation
                                 }
                             )
                         }
@@ -130,7 +137,8 @@
                     jsonList.links.push(
                         {
                             source: data[1].nodes[j],
-                            target: data[1].name
+                            target: data[1].name,
+                            relation: data[1].relation
                         }
                     )
                 }
@@ -170,6 +178,7 @@
             }
         };
         panorama(data);
+        console.log(data);
     }
     $('.btnList').on('click', 'input', function () {
         $(this).addClass('btn-active1').siblings().removeClass('btn-active1');
